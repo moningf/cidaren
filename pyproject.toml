@@ -1,0 +1,9 @@
+[project]
+name = "cidaren"
+version = "0.1.0"
+description = "词达人自动答题脚本"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "requests>=2.33.0",
+]

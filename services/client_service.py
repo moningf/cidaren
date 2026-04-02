@@ -36,7 +36,7 @@ class ClientService:
         self.task_info[task_id] = class_task_api.get_task_info(self.client, task_id)["data"]
         return self.task_info[task_id]
     def chose_word_list(self, task_id):
-        """选择单词列表展示"""
+        """选择单词列表展示（尽量使用获取任务详情接口）"""
         result = class_task_api.chose_word_list(self.client, task_id)["data"]
         return result
     def submit_chose_word(self, task_id, word_map):

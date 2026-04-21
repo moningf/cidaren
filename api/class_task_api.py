@@ -78,3 +78,11 @@ def verify_answer(client, topic_code, answer, app_type=1):
     }
     return client.post(url, body)
 
+def study_word(client,course_id,list_id,word):
+    url = "/Student/Course/StudyWordInfo"
+    params = {
+        "course_id": course_id,
+        "list_id": list_id,
+        "word": word,
+    }
+    return client.get(url, params=params)

@@ -29,7 +29,7 @@ class ClientService:
         self.tasks_list = class_task_api.page_task(self.client)["data"]["records"]
         return self.tasks_list
 
-    def get_task_info(self, task_id)->list:
+    def get_task_info(self, task_id) -> dict:
         """获取任务详情"""
         if task_id in self.task_info.keys():
             return self.task_info[task_id]
@@ -56,5 +56,13 @@ class ClientService:
     def verify_answer(self, topic_code, answer, app_type=1):
         """验证答案"""
         result = class_task_api.verify_answer(self.client, topic_code, answer, app_type)["data"]
+        result = decode(result)
+        return result
+    def study_word(self, task_id, word):
+        """学习单词"""
+        word_list_info = self.get_task_info(task_id)
+        course_id = word_list_info["course_id"]
+        list_id = word_list_info["word_list"][0]["list_id"]
+        result = class_task_api.study_word(self.client, course_id, list_id, word)["data"]
         result = decode(result)
         return result

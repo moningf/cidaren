@@ -3,7 +3,7 @@ import re
 import time
 import psutil
 
-PROCESS_NAME = "WeChatAppEx"
+PROCESS_NAME = "WeChatAppEx.exe"
 TARGET = "UserToken:"
 # TARGET = "ABC:"
 
@@ -16,7 +16,7 @@ def get_pids(process_name=PROCESS_NAME)->list:
     return list
 
 def window_get_token():
-    pid = get_pids()[-1]
+    pid = get_pids()[1]
     try:
         pm = pymem.Pymem(pid)
         addresses = pm.pattern_scan_all(TARGET.encode('utf-8'),return_multiple=False)

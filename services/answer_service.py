@@ -1,10 +1,11 @@
 from services.client_service import ClientService
+from services import ai
 import time
 class Answer_Unit:
     def __init__(self, client_service:ClientService):
         self.client_service = client_service
         self.choose_task()
-        self.choose_word()
+        # self.choose_word()
 
     def choose_task(self):
         """选择班级任务"""
@@ -33,12 +34,23 @@ class Answer_Unit:
         return result
 
     def answer(self,topic):
+        #如果topic没有topic_mode，说明没有下一题了，直接返回None结束答题循环
+        if "topic_mode" not in topic.keys():
+            return None
         """提交答案"""
-        print(f"正在回答题目: {topic}")
         if topic['topic_mode'] == 0:     
             return self.answer_00(topic)
         if topic['topic_mode'] == 11:
             return self.answer_11(topic)
+        if topic['topic_mode'] == 22:
+            return self.answer_22(topic)
+        if topic['topic_mode'] == 31:
+            return self.answer_31(topic)
+        if topic['topic_mode'] == 32:
+            return self.answer_32(topic)
+        if topic['topic_mode'] == 51:
+            return self.answer_51(topic)
+        # print(f"未适配的题型，topic_mode: {topic['topic_mode']}")
 
     def start_answer(self):
         topic = self.client_service.start_answer(task_id=self.task_id, task_type=self.task_type, release_id=self.release_id)
@@ -46,15 +58,68 @@ class Answer_Unit:
 
     def answer_00(self,topic):
         time.sleep(1)
+        print(f"阅读卡片：{topic}")
         topic_code = topic["topic_code"]
         result = self.client_service.submit_answer_and_save(topic_code)
         return result
 
     def answer_11(self,topic):
         time.sleep(2)
+        print(f"英译汉题：{topic}")
         topic_code = topic["topic_code"]
-        answer = topic["answer_num"]
-        result = self.client_service.verify_answer(topic_code,answer=answer)
+        for i in range(4):
+            res = self.client_service.verify_answer(topic_code,answer=i)
+            if res["answer_result"] == 1:
+                break
+        topic_code = res["topic_code"]
+        result = self.client_service.submit_answer_and_save(topic_code)
+        return result
+    def answer_22(self,topic):
+        print(f"听力题：{topic}")
+        # word_info = self.client_service.study_word(self.task_id, topic["stem"]["content"])
+        # print(f"单词信息：{word_info}")
+        topic_code = topic["topic_code"]
+        for i in range(4):
+            res = self.client_service.verify_answer(topic_code,answer=i)
+            print(f"验证结果：{res}")
+            if res["answer_result"] == 1:
+                break
+        topic_code = res["topic_code"]
+        result = self.client_service.submit_answer_and_save(topic_code)
         return result
 
-
+    def answer_31(self,topic):
+        print(f"选词题：{topic}")
+        topic_code = topic["topic_code"]
+        ans = [x["relation"] for x in topic["stem"]["remark"]]
+        count = topic["answer_num"]
+        opts = topic["options"]
+        print(f"正确选项：{ans}")
+        ans_num = [opt["answer_tag"] for opt in opts if opt["content"] in ans]
+        for i in range(count):
+            res = self.client_service.verify_answer(topic_code,answer=ans_num[i])
+            topic_code = res["topic_code"]
+            print(f"验证结果：{res}")
+        result = self.client_service.submit_answer_and_save(topic_code)
+        return result
+        
+    def answer_32(self,topic):
+        print(f"翻译题：{topic}")
+        ans = ai.answerfor32(topic)["answer"]
+        print(f"AI答案：{ans}")
+        topic_code = topic["topic_code"]
+        res = self.client_service.verify_answer(topic_code,answer=ans)
+        print(f"验证结果：{res}")
+        topic_code = res["topic_code"]
+        result = self.client_service.submit_answer_and_save(topic_code)
+        return result
+    
+    def answer_51(self,topic):
+        print(f"翻译填空题：{topic}")
+        ans = ai.answerfor51(topic)["answer"]
+        print(f"AI答案：{ans}")
+        res = self.client_service.verify_answer(topic["topic_code"],answer=ans)
+        print(f"验证结果：{res}")
+        topic_code = res["topic_code"]
+        result = self.client_service.submit_answer_and_save(topic_code)
+        return result

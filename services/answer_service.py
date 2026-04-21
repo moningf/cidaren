@@ -5,7 +5,7 @@ class Answer_Unit:
     def __init__(self, client_service:ClientService):
         self.client_service = client_service
         self.choose_task()
-        # self.choose_word()
+        self.choose_word()
 
     def choose_task(self):
         """选择班级任务"""

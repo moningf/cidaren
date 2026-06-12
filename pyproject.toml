@@ -1,12 +1,23 @@
 [project]
 name = "cidaren"
 version = "0.1.0"
-description = "词达人自动答题脚本"
+description = "VocabGo 自动答题工具"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
-    "openai>=2.30.0",
-    "psutil>=7.2.2",
-    "pymem>=1.14.0",
-    "requests>=2.33.0",
+    "requests>=2.31.0",
+    "openai>=1.0.0",
+    "psutil>=5.9.0",
+    "pymem>=1.13.0",
+    "cryptography>=42.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+]
+
+[project.scripts]
+cidaren = "main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
 ]

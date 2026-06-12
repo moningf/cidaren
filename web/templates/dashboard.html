@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIDAREN 任务面板</title>
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --border: #e2e5ee;
+    --text: #1a1d2e;
+    --text-dim: #8b8fa3;
+    --accent: #4f6ef7;
+    --accent-hover: #6b85ff;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --red-dim: #dc2626;
+    --radius: 10px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 24px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.4px;
+    color: var(--text);
+  }
+  header .actions { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    padding: 7px 16px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all 0.15s ease;
+    box-shadow: var(--shadow-sm); white-space: nowrap;
+  }
+  .btn:hover { background: #f8f9fc; border-color: #cdd2e0; box-shadow: var(--shadow); }
+  .btn:active { transform: scale(0.98); }
+  .btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    box-shadow: 0 1px 3px rgba(79,110,247,0.3);
+  }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.danger {
+    background: #fff; border-color: var(--red); color: var(--red);
+  }
+  .btn.danger:hover { background: #fef2f2; border-color: var(--red-dim); color: var(--red-dim); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn.icon { padding: 7px 10px; font-size: 16px; }
+
+  /* Task table */
+  .table-wrap {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 11px 16px; text-align: left; font-size: 13px; }
+  th {
+    background: #fafbfc; color: var(--text-dim); font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border); position: sticky; top: 0;
+  }
+  td { border-bottom: 1px solid #f0f1f5; }
+  tr:last-child td { border-bottom: none; }
+  tr { transition: background 0.12s; }
+  tr:not(.expired):not(.header-row):hover { background: #f8f9fd; }
+  tr.expired { color: var(--text-dim); background: #fafafa; }
+  tr.expired td { opacity: 0.45; }
+  .progress-bar {
+    width: 80px; height: 6px; background: #e8ecf2; border-radius: 4px;
+    overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px;
+  }
+  .progress-bar .fill { display: inline-block; height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .fill.done { background: var(--green); }
+  .fill.mid { background: var(--yellow); }
+  .fill.low { background: var(--red-dim); }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge.active { background: #ecfdf5; color: #059669; }
+  .badge.done-badge { background: #eff2ff; color: var(--accent); }
+  .badge.expired-badge { background: #fef2f2; color: var(--red-dim); }
+  .badge.test { background: #fffbeb; color: #d97706; }
+  .badge.study { background: #eff2ff; color: var(--accent); }
+  input[type="checkbox"] {
+    accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer;
+    border-radius: 4px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    margin-top: 16px; padding: 11px 18px; border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; box-shadow: var(--shadow-sm);
+  }
+  .status-running { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(79,110,247,0.08); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; }
+  .dot-idle { background: #c4c8d4; }
+  .dot-running { background: var(--green); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Queue panel */
+  .queue-panel {
+    margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); overflow: hidden; box-shadow: var(--shadow-sm);
+  }
+  .queue-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 16px; font-size: 12px; cursor: pointer; user-select: none;
+    color: var(--text-dim); transition: background 0.15s; font-weight: 500;
+  }
+  .queue-header:hover { background: #f8f9fc; }
+  .queue-header .queue-title { display: flex; align-items: center; gap: 8px; }
+  .queue-count {
+    display: inline-block; padding: 2px 9px; border-radius: 12px;
+    background: #eff2ff; font-size: 11px; color: var(--accent);
+    font-weight: 600;
+  }
+  .queue-arrow { transition: transform 0.2s; font-size: 11px; }
+  .queue-arrow.open { transform: rotate(90deg); }
+  .queue-body {
+    max-height: 0; overflow: hidden; transition: max-height 0.25s ease-out;
+    border-top: 1px solid var(--border);
+  }
+  .queue-body.open { max-height: 300px; }
+  .queue-list {
+    padding: 8px 16px 12px; font-size: 12px; line-height: 1.9;
+    max-height: 280px; overflow-y: auto;
+  }
+  .queue-list .q-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 2px 0; color: var(--text-dim);
+  }
+  .queue-list .q-item.current {
+    color: #059669; font-weight: 600;
+  }
+  .queue-list .q-item .q-num {
+    display: inline-block; width: 20px; text-align: right;
+    font-size: 11px; color: #bbb;
+  }
+  .queue-list .q-item.current .q-num { color: #059669; font-weight: 600; }
+
+  /* Log area */
+  .log-area {
+    margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: #1e1f2b; padding: 12px 18px; height: 200px; overflow-y: auto;
+    font-family: "JetBrains Mono", "Fira Code", "SF Mono", monospace; font-size: 12px;
+    color: #a1a6b8; line-height: 1.7;
+  }
+  .log-area .entry { white-space: pre-wrap; word-break: break-all; }
+
+  /* Modal overlay */
+  .overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.35); z-index: 100;
+    justify-content: center; align-items: center;
+    backdrop-filter: blur(2px);
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px; width: 440px; max-width: 92vw;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+  }
+  .modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 22px; letter-spacing: -0.3px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; font-weight: 500; }
+  .field input {
+    width: 100%; padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px;
+    background: #fafbfc; color: var(--text); font-size: 13px; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,110,247,0.08); background: #fff; }
+  .modal .btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px; padding: 11px 22px;
+    border-radius: 10px; font-size: 13px; z-index: 200; font-weight: 500;
+    animation: slideIn 0.2s ease-out;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  }
+  .toast.ok { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+  .toast.err { background: #fef2f2; color: var(--red-dim); border: 1px solid #fecaca; }
+  @keyframes slideIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Select all */
+  .select-bar { display: flex; gap: 12px; align-items: center; margin: 14px 0; font-size: 13px; }
+  .select-bar a { color: var(--accent); cursor: pointer; text-decoration: none; font-weight: 500; }
+  .select-bar a:hover { text-decoration: underline; }
+  .select-bar .count { color: var(--text-dim); }
+
+  /* Tab bar */
+  .tab-bar { display: flex; gap: 0; margin-bottom: 18px; }
+  .tab-bar button {
+    padding: 8px 22px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-dim); cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: all 0.15s;
+  }
+  .tab-bar button:first-child { border-radius: 8px 0 0 8px; }
+  .tab-bar button:last-child { border-radius: 0 8px 8px 0; }
+  .tab-bar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab-bar button:not(.active):hover { background: #f8f9fc; color: var(--text); }
+  .tab-bar .tab-count { margin-left: 4px; opacity: 0.75; font-size: 11px; }
+
+  /* Pagination */
+  .page-bar {
+    display: flex; gap: 10px; align-items: center; justify-content: center;
+    margin-top: 14px; font-size: 13px;
+  }
+  .page-bar button { min-width: 64px; }
+  .page-bar .page-info { color: var(--text-dim); min-width: 80px; text-align: center; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CIDAREN 任务面板</h1>
+  <div class="actions">
+    <button class="btn primary" id="btnStart" onclick="startTasks()" disabled>开始选中任务</button>
+    <button class="btn danger" id="btnStop" onclick="stopTasks()" disabled>停止</button>
+    <button class="btn" onclick="refreshTasks()" id="btnRefresh">刷新</button>
+    <button class="btn icon" onclick="openSettings()" title="设置">⚙</button>
+  </div>
+</header>
+
+<div class="tab-bar" id="tabBar">
+  <button class="active" onclick="switchTab('class')">班级任务<span class="tab-count" id="classCount">0</span></button>
+  <button onclick="switchTab('study')">自学任务<span class="tab-count" id="studyCount">0</span></button>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36px"><input type="checkbox" id="selectAll" onchange="toggleAll(this)" disabled></th>
+        <th>任务名称</th>
+        <th style="width:100px">进度</th>
+        <th style="width:55px">得分</th>
+        <th style="width:100px">截止时间</th>
+        <th style="width:70px">状态</th>
+        <th style="width:70px">类型</th>
+      </tr>
+    </thead>
+    <tbody id="taskBody">
+      <tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">加载中...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="page-bar" id="pageBar" style="display:none">
+  <button class="btn" onclick="prevPage()">上一页</button>
+  <span class="page-info" id="pageInfo">第 1/1 页</span>
+  <button class="btn" onclick="nextPage()">下一页</button>
+</div>
+
+<div class="select-bar">
+  <a onclick="selectAll()">全选</a> <a onclick="selectNone()">取消全选</a>
+  <span class="count" id="selCount">已选 0 项</span>
+</div>
+
+<div class="status-bar" id="statusBar">
+  <span><span class="status-dot dot-idle"></span><span id="statusText">空闲</span></span>
+  <span id="statusDetail"></span>
+</div>
+
+<div class="queue-panel" id="queuePanel" style="display:none">
+  <div class="queue-header" onclick="toggleQueue()">
+    <span class="queue-title"><span id="queueArrow" class="queue-arrow">▸</span> 任务队列 <span class="queue-count" id="queueCount">0</span></span>
+    <span style="font-size:11px;color:var(--text-dim)" id="queueCurrent"></span>
+  </div>
+  <div class="queue-body" id="queueBody">
+    <div class="queue-list" id="queueList"></div>
+  </div>
+</div>
+
+<div class="log-area" id="logArea">
+  <div class="entry">等待操作...</div>
+</div>
+
+<!-- Settings Modal -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>设置</h2>
+    <div class="field">
+      <label>Token（user_token）</label>
+      <div style="display:flex;gap:8px">
+        <input id="setToken" placeholder="输入 VocabGo 用户 Token..." style="flex:1">
+        <button class="btn" id="btnScan" onclick="scanToken()">自动获取</button>
+      </div>
+      <span style="font-size:11px;color:var(--text-dim);margin-top:2px;display:inline-block" id="scanHint"></span>
+    </div>
+    <div class="field">
+      <label>AI API Key（可选，用于 AI 答题兜底）</label>
+      <input id="setAiKey" placeholder="sk-...">
+    </div>
+    <div class="field">
+      <label>AI Base URL（OpenAI 兼容）</label>
+      <input id="setAiUrl" placeholder="https://api.deepseek.com">
+    </div>
+    <div class="field">
+      <label>AI 模型名称</label>
+      <div style="display:flex;gap:8px">
+        <input id="setAiModel" placeholder="deepseek-chat" style="flex:1">
+        <button class="btn" id="btnTestAi" onclick="testAiConnection()">测试连接</button>
+      </div>
+      <span style="font-size:11px;margin-top:2px;display:inline-block" id="testAiHint"></span>
+    </div>
+    <div class="field">
+      <label>自学课程 ID（course_id）</label>
+      <input id="setCourseId" placeholder="CET4_v2">
+    </div>
+    <div class="field">
+      <label>自学难度（1-4）</label>
+      <input id="setGrade" type="number" min="1" max="4" placeholder="2">
+    </div>
+    <div class="btns">
+      <button class="btn" onclick="closeSettings()">取消</button>
+      <button class="btn primary" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _tasks = [];
+let _statusTimer = null;
+let _currentTab = 'class';
+let _studyPage = 1;
+const PAGE_SIZE = 15;
+
+// ── Tab switching ──────────────────────────────────
+
+let _bgAbort = null;
+
+function switchTab(tab) {
+  _currentTab = tab;
+  _studyPage = 1;
+  document.getElementById('selectAll').checked = false;
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.tab-bar button[onclick="switchTab('${tab}')"]`).classList.add('active');
+  renderTasks(_tasks);
+  // 取消上一次未完成的后台请求
+  if (_bgAbort) { _bgAbort.abort(); _bgAbort = null; }
+  const ctrl = new AbortController();
+  _bgAbort = ctrl;
+  const capturedTab = tab;
+  fetch(`/api/tasks?source=${capturedTab}`, {signal: ctrl.signal})
+    .then(r => r.json())
+    .then(data => {
+      _bgAbort = null;
+      if (!data.error && data.tasks) {
+        const other = _tasks.filter(t => t.source !== capturedTab);
+        _tasks = other.concat(data.tasks);
+        if (_currentTab === capturedTab) renderTasks(_tasks);
+      }
+    })
+    .catch(() => { if (_bgAbort === ctrl) _bgAbort = null; });
+}
+
+// ── Pagination ─────────────────────────────────────
+
+function prevPage() {
+  if (_studyPage > 1) { _studyPage--; document.getElementById('selectAll').checked = false; renderTasks(_tasks); }
+}
+
+function nextPage() {
+  const studyTasks = _tasks.filter(t => t.source === 'study');
+  const totalPages = Math.ceil(studyTasks.length / PAGE_SIZE) || 1;
+  if (_studyPage < totalPages) { _studyPage++; document.getElementById('selectAll').checked = false; renderTasks(_tasks); }
+}
+
+function updatePagination() {
+  const pageBar = document.getElementById('pageBar');
+  const pageInfo = document.getElementById('pageInfo');
+  if (_currentTab !== 'study') {
+    pageBar.style.display = 'none';
+    return;
+  }
+  const studyTasks = _tasks.filter(t => t.source === 'study');
+  const totalPages = Math.ceil(studyTasks.length / PAGE_SIZE) || 1;
+  pageBar.style.display = totalPages > 1 ? 'flex' : 'none';
+  pageInfo.textContent = `第 ${_studyPage}/${totalPages} 页`;
+  document.querySelector('#pageBar button:first-child').disabled = _studyPage <= 1;
+  document.querySelector('#pageBar button:last-child').disabled = _studyPage >= totalPages;
+}
+
+// ── Task rendering ─────────────────────────────────
+
+function statusLabel(overStatus, expired, source) {
+  if (source === 'study') return '<span class="badge active">-</span>';
+  if (expired) return '<span class="badge expired-badge">已关闭</span>';
+  if (overStatus === 1) return '<span class="badge active">未开始</span>';
+  if (overStatus === 2) return '<span class="badge active">进行中</span>';
+  return '<span class="badge expired-badge">过期</span>';
+}
+
+function typeLabel(tt) {
+  return tt === 2
+    ? '<span class="badge test">测试</span>'
+    : '<span class="badge study">学习</span>';
+}
+
+function deadlineStr(startMs, overMs, source) {
+  if (source === 'study' || !startMs || !overMs) return '-';
+  const end = new Date(startMs + overMs);
+  const m = String(end.getMonth() + 1).padStart(2, '0');
+  const d = String(end.getDate()).padStart(2, '0');
+  const h = String(end.getHours()).padStart(2, '0');
+  const mi = String(end.getMinutes()).padStart(2, '0');
+  return `${m}-${d} ${h}:${mi}`;
+}
+
+function progressBar(pct) {
+  let cls = 'done';
+  if (pct < 50) cls = 'low';
+  else if (pct < 100) cls = 'mid';
+  return `<span class="progress-bar"><span class="fill ${cls}" style="width:${pct}%"></span></span>${pct}%`;
+}
+
+function scoreStr(score) {
+  if (score == null || score === 0) return '-';
+  return score % 1 === 0 ? String(score) : score.toFixed(1);
+}
+
+let _everLoaded = false;
+
+function renderTasks(tasks) {
+  _tasks = tasks;
+  const tbody = document.getElementById('taskBody');
+
+  // Update tab counts
+  const classTasks = tasks.filter(t => t.source === 'class');
+  const studyTasks = tasks.filter(t => t.source === 'study');
+  document.getElementById('classCount').textContent = classTasks.length;
+  document.getElementById('studyCount').textContent = studyTasks.length;
+
+  // Filter by current tab
+  let filtered = tasks.filter(t => t.source === _currentTab);
+
+  // Paginate study tasks
+  if (_currentTab === 'study') {
+    const start = (_studyPage - 1) * PAGE_SIZE;
+    filtered = studyTasks.slice(start, start + PAGE_SIZE);
+  }
+
+  if (!filtered.length) {
+    const label = _everLoaded ? '无任务' : '加载中...';
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">${label}</td></tr>`;
+    document.getElementById('selectAll').disabled = true;
+    updatePagination();
+    return;
+  }
+  document.getElementById('selectAll').disabled = false;
+  let html = '';
+  for (const t of filtered) {
+    const expired = t.expired;
+    const cls = expired ? 'expired' : '';
+    const cb = expired
+      ? '<td></td>'
+      : `<td><input type="checkbox" value="${t.uid}" onchange="updateCount()"></td>`;
+    html += `<tr class="${cls}">
+      ${cb}
+      <td>${t.task_name}</td>
+      <td>${progressBar(t.progress)}</td>
+      <td>${scoreStr(t.score)}</td>
+      <td>${deadlineStr(t.start_time, t.over_time, t.source)}</td>
+      <td>${statusLabel(t.over_status, expired, t.source)}</td>
+      <td>${typeLabel(t.task_type)}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+  updateCount();
+  updatePagination();
+}
+
+function updateCount() {
+  const n = document.querySelectorAll('#taskBody input[type="checkbox"]:checked').length;
+  document.getElementById('selCount').textContent = `已选 ${n} 项`;
+  document.getElementById('btnStart').disabled = n === 0;
+}
+
+function toggleAll(el) {
+  const cbs = document.querySelectorAll('#taskBody input[type="checkbox"]');
+  for (const cb of cbs) cb.checked = el.checked;
+  updateCount();
+}
+
+function selectAll() {
+  const cbs = document.querySelectorAll('#taskBody input[type="checkbox"]');
+  for (const cb of cbs) cb.checked = true;
+  document.getElementById('selectAll').checked = true;
+  updateCount();
+}
+
+function selectNone() {
+  const cbs = document.querySelectorAll('#taskBody input[type="checkbox"]');
+  for (const cb of cbs) cb.checked = false;
+  document.getElementById('selectAll').checked = false;
+  updateCount();
+}
+
+// ── API calls ─────────────────────────────────────
+
+async function refreshTasks() {
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  btn.textContent = '刷新中...';
+  try {
+    await loadTasksForTab(_currentTab, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '刷新';
+  }
+}
+
+async function startTasks() {
+  const cbs = document.querySelectorAll('#taskBody input[type="checkbox"]:checked');
+  const ids = [...cbs].map(cb => cb.value);
+  if (!ids.length) return;
+  // 从前端缓存的 _tasks 中取出完整任务数据，避免后端重复拉取 API
+  const uidSet = new Set(ids);
+  const selectedTasks = _tasks.filter(t => uidSet.has(t.uid));
+  const btn = document.getElementById('btnStart');
+  btn.disabled = true;
+  btn.textContent = '启动中...';
+  try {
+    const r = await fetch('/api/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({task_ids: ids, tasks: selectedTasks})
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      let msg = err.detail || '启动失败';
+      if (r.status === 401 || msg.includes('Token 已过期')) {
+        msg = 'Token 已过期，请在设置中重新获取或手动输入';
+      }
+      toast(msg, 'err');
+      btn.disabled = false;
+      btn.textContent = '开始选中任务';
+      return;
+    }
+    toast('任务已启动', 'ok');
+    startPolling();
+  } catch (e) {
+    toast('启动失败: ' + e.message, 'err');
+    btn.disabled = false;
+    btn.textContent = '开始选中任务';
+  }
+}
+
+async function stopTasks() {
+  try {
+    await fetch('/api/stop', {method: 'POST'});
+    toast('停止信号已发送', 'ok');
+  } catch (e) {
+    toast('停止失败', 'err');
+  }
+}
+
+async function pollStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    updateStatusUI(s);
+    if (s.running) return true;
+  } catch (e) { /* ignore */ }
+  return false;
+}
+
+function updateStatusUI(s) {
+  const bar = document.getElementById('statusBar');
+  const dot = bar.querySelector('.status-dot');
+  const text = document.getElementById('statusText');
+  const detail = document.getElementById('statusDetail');
+  const logArea = document.getElementById('logArea');
+  const btnStop = document.getElementById('btnStop');
+  const btnStart = document.getElementById('btnStart');
+  const qPanel = document.getElementById('queuePanel');
+  const qCount = document.getElementById('queueCount');
+  const qCurrent = document.getElementById('queueCurrent');
+  const qList = document.getElementById('queueList');
+
+  if (s.running) {
+    bar.classList.add('status-running');
+    dot.className = 'status-dot dot-running';
+    text.textContent = `执行中: ${s.current_task}`;
+    detail.textContent = `任务 ${s.task_index}/${s.total_tasks}  |  题目 ${s.topic_done}/${s.topic_total}`;
+    btnStop.disabled = false;
+    btnStart.disabled = true;
+    // Queue panel
+    if (s.pending && s.pending.length > 0) {
+      qPanel.style.display = 'block';
+      qCount.textContent = s.pending.length;
+      qCurrent.textContent = s.pending[0] || '';
+      let html = '';
+      for (let i = 0; i < s.pending.length; i++) {
+        const cls = i === 0 ? 'current' : '';
+        const label = i === 0 ? '进行中' : `等待 ${i}`;
+        html += `<div class="q-item ${cls}"><span class="q-num">${i + 1}</span><span>${label}</span><span style="margin-left:auto">${s.pending[i]}</span></div>`;
+      }
+      qList.innerHTML = html;
+    } else {
+      qPanel.style.display = 'none';
+    }
+  } else {
+    bar.classList.remove('status-running');
+    dot.className = 'status-dot dot-idle';
+    text.textContent = '空闲';
+    detail.textContent = '';
+    btnStop.disabled = true;
+    btnStart.textContent = '开始选中任务';
+    updateCount();
+    qPanel.style.display = 'none';
+  }
+
+  if (s.logs && s.logs.length) {
+    logArea.innerHTML = s.logs.map(l => `<div class="entry">${l}</div>`).join('');
+    logArea.scrollTop = logArea.scrollHeight;
+  }
+}
+
+function toggleQueue() {
+  const body = document.getElementById('queueBody');
+  const arrow = document.getElementById('queueArrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+function startPolling() {
+  if (_statusTimer) clearInterval(_statusTimer);
+  _statusTimer = setInterval(async () => {
+    const running = await pollStatus();
+    if (!running) {
+      clearInterval(_statusTimer);
+      _statusTimer = null;
+      // Reset UI
+      document.getElementById('btnStop').disabled = true;
+      const btnStart = document.getElementById('btnStart');
+      btnStart.textContent = '开始选中任务';
+      updateCount();
+      const bar = document.getElementById('statusBar');
+      bar.classList.remove('status-running');
+      bar.querySelector('.status-dot').className = 'status-dot dot-idle';
+      document.getElementById('statusText').textContent = '空闲';
+      document.getElementById('statusDetail').textContent = '';
+      // 任务执行结束，自动刷新任务列表
+      refreshTasks();
+    }
+  }, 2000);
+}
+
+// ── Settings ──────────────────────────────────────
+
+async function loadSettings() {
+  try {
+    const r = await fetch('/api/settings');
+    const s = await r.json();
+    document.getElementById('setToken').value = s.user_token || '';
+    document.getElementById('setAiKey').value = s.deepseek_api_key || '';
+    document.getElementById('setAiUrl').value = s.deepseek_base_url || 'https://api.deepseek.com';
+    document.getElementById('setAiModel').value = s.ai_model || 'deepseek-chat';
+    document.getElementById('setCourseId').value = s.course_id || 'CET4_v2';
+    document.getElementById('setGrade').value = s.study_grade || '2';
+  } catch (e) { /* ignore */ }
+}
+
+async function scanToken() {
+  const btn = document.getElementById('btnScan');
+  const hint = document.getElementById('scanHint');
+  btn.disabled = true;
+  btn.textContent = '扫描中...';
+  hint.textContent = '';
+  try {
+    const r = await fetch('/api/token/scan');
+    const data = await r.json();
+    if (data.found) {
+      document.getElementById('setToken').value = '';
+      hint.textContent = '已从 ' + (data.source === 'memory' ? '微信进程' : '配置文件') + ' 获取到有效 Token';
+      hint.style.color = 'var(--green)';
+      toast('Token 获取成功', 'ok');
+      // Reload settings to get the token value
+      loadSettings();
+    } else {
+      hint.textContent = '未找到有效 Token，请确保微信已打开并登录词达人';
+      hint.style.color = 'var(--red-dim)';
+      toast('未获取到 Token，请确保微信已打开并登录词达人', 'err');
+    }
+  } catch (e) {
+    hint.textContent = '扫描失败: ' + e.message;
+    hint.style.color = 'var(--red-dim)';
+    toast('扫描失败', 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '自动获取';
+  }
+}
+
+function openSettings() {
+  document.getElementById('settingsOverlay').classList.add('show');
+  document.getElementById('scanHint').textContent = '';
+  document.getElementById('testAiHint').textContent = '';
+  loadSettings();
+}
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('show'); }
+
+async function testAiConnection() {
+  const btn = document.getElementById('btnTestAi');
+  const hint = document.getElementById('testAiHint');
+  btn.disabled = true;
+  btn.textContent = '测试中...';
+  hint.textContent = '';
+  try {
+    const r = await fetch('/api/ai/test', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        api_key: document.getElementById('setAiKey').value.trim(),
+        base_url: document.getElementById('setAiUrl').value.trim() || 'https://api.deepseek.com',
+        model: document.getElementById('setAiModel').value.trim() || 'deepseek-chat',
+      })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      hint.textContent = '连接成功: ' + data.message;
+      hint.style.color = 'var(--green)';
+      // 测试通过，自动保存设置
+      await saveSettings(true);
+    } else {
+      hint.textContent = '连接失败: ' + data.message;
+      hint.style.color = 'var(--red-dim)';
+    }
+  } catch (e) {
+    hint.textContent = '请求失败: ' + e.message;
+    hint.style.color = 'var(--red-dim)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '测试连接';
+  }
+}
+
+async function saveSettings(silent = false) {
+  const body = {
+    user_token: document.getElementById('setToken').value.trim(),
+    deepseek_api_key: document.getElementById('setAiKey').value.trim(),
+    deepseek_base_url: document.getElementById('setAiUrl').value.trim() || 'https://api.deepseek.com',
+    ai_model: document.getElementById('setAiModel').value.trim() || 'deepseek-chat',
+    course_id: document.getElementById('setCourseId').value.trim() || 'CET4_v2',
+    study_grade: document.getElementById('setGrade').value || '2',
+  };
+  if (!body.user_token) { toast('请输入 Token', 'err'); return; }
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('保存失败');
+    if (silent) return;
+    closeSettings();
+    toast('设置已保存', 'ok');
+    refreshTasks();
+  } catch (e) {
+    if (silent) return;
+    toast('保存失败: ' + e.message, 'err');
+  }
+}
+
+// ── Toast ─────────────────────────────────────────
+
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── Keyboard shortcuts ────────────────────────────
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSettings();
+});
+
+document.getElementById('settingsOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+
+// ── Init ──────────────────────────────────────────
+
+function handleApiError(data) {
+  if (!data.error) return false;
+  if (data.error === 'TOKEN_EXPIRED') {
+    toast('Token 已过期，请在设置中重新获取或手动输入', 'err');
+  } else if (data.error.includes('Token')) {
+    toast('未获取到 Token，请确保微信已打开并登录词达人，或在设置中手动输入', 'err');
+  } else {
+    toast(data.error, 'err');
+  }
+  return true;
+}
+
+async function loadTasksForTab(tab, force = false) {
+  const r = await fetch(`/api/tasks?source=${tab}&force=${force}`);
+  const data = await r.json();
+  if (handleApiError(data)) {
+    // 保留现有数据，不清空
+    return false;
+  }
+  _everLoaded = true;
+  // 合并而非替换：保留另一 tab 的数据，更新当前 tab
+  const keep = _tasks.filter(t => t.source !== tab);
+  _tasks = keep.concat(data.tasks);
+  renderTasks(_tasks);
+  return true;
+}
+
+function backgroundLoad(tab) {
+  fetch(`/api/tasks?source=${tab}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.error && data.tasks) {
+        const keep = _tasks.filter(t => t.source !== tab);
+        _tasks = keep.concat(data.tasks);
+        renderTasks(_tasks);
+      }
+    })
+    .catch(() => {});
+}
+
+async function initApp() {
+  document.getElementById('taskBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">正在获取 token，请等待...</td></tr>';
+  try {
+    const r = await fetch('/api/token');
+    const data = await r.json();
+    if (!data.found) {
+      toast('未获取到 Token，请确保微信已打开并登录词达人，或在设置中手动输入', 'err');
+      renderTasks([]);
+      return;
+    }
+    toast('已成功获取 token', 'ok');
+    // 默认加载班级任务
+    await loadTasksForTab('class');
+    // 后台补拉自学任务计数
+    backgroundLoad('study');
+  } catch (e) {
+    toast('获取 token 失败: ' + e.message, 'err');
+    renderTasks([]);
+  }
+}
+
+initApp();
+</script>
+</body>
+</html>

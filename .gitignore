@@ -1,10 +1,32 @@
 # Python-generated files
 __pycache__/
-*.py[oc]
+*.py[co]
 build/
 dist/
 wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
+
+# User settings (contains credentials)
+settings.json
+
+# Logs
+logs/
+
+# Claude Code
+.claude/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+.pytest_cache/

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from auth.base import TokenScanner
+from web.logging import app_log
 
 TOKEN_PREFIX = "UserToken:"
 
@@ -45,6 +46,8 @@ class LinuxTokenScanner(TokenScanner):
         seen: set[str] = set()
         search_bytes = TOKEN_PREFIX.encode("utf-8")
         segments = self._find_readable_segments()
+        app_log("AUTH", f"Linux: PID={self._pid} 找到 {len(segments)} 个可读内存段")
+        match_count = 0
         for start, end in segments:
             try:
                 data = self._read_segment(start, end)
@@ -55,11 +58,13 @@ class LinuxTokenScanner(TokenScanner):
                 index = data.find(search_bytes, pos)
                 if index == -1:
                     break
+                match_count += 1
                 pos = index + len(search_bytes)
                 content = data[index : index + 1024].decode("utf-8", errors="ignore")
                 match = re.search(r"UserToken[:\s]+([a-zA-Z0-9]{10,})", content)
                 if match:
                     t = match.group(1)
+                    app_log("AUTH", f"Linux: PID={self._pid} 正则匹配到 token={t[:8]}...")
                     if t not in seen:
                         seen.add(t)
                         results.append(t)
@@ -68,8 +73,10 @@ class LinuxTokenScanner(TokenScanner):
                 parts = content.replace(":", " ").split()
                 for p in parts:
                     if len(p) > 10 and p.isalnum() and p not in seen:
+                        app_log("AUTH", f"Linux: PID={self._pid} 兜底匹配到 token={p[:8]}...")
                         seen.add(p)
                         results.append(p)
+        app_log("AUTH", f"Linux: PID={self._pid} 共命中 {match_count} 次, 提取 {len(results)} 个唯一 token")
         return results
 
 
